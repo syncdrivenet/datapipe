@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SyncDrive V1</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        :root {
+            --bg-primary: #fafbfc;
+            --bg-card: #ffffff;
+            --bg-subtle: #f6f8fa;
+            --bg-accent: #f0f6ff;
+            --border-default: #e1e4e8;
+            --border-subtle: #eaecef;
+            --text-primary: #24292f;
+            --text-secondary: #57606a;
+            --text-tertiary: #8b949e;
+            --accent-primary: #0969da;
+            --accent-success: #1a7f37;
+            --accent-warning: #9a6700;
+            --accent-danger: #cf222e;
+            --shadow-sm: 0 1px 2px rgba(31,35,40,0.04);
+            --shadow-md: 0 3px 6px rgba(31,35,40,0.08);
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .container { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 32px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .header-left h1 {
+            font-size: 22px;
+            font-weight: 600;
+            letter-spacing: -0.3px;
+            margin-bottom: 2px;
+        }
+        .subtitle { color: var(--text-secondary); font-size: 14px; }
+
+        /* Sections */
+        .section { margin-bottom: 32px; }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        .section-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            margin-bottom: 12px;
+            border: 1px solid var(--border-default);
+            transition: box-shadow 0.15s ease;
+        }
+        .card:hover { box-shadow: var(--shadow-md); }
+
+        /* Session Header */
+        .session-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 8px;
+            cursor: pointer;
+        }
+        .session-header:hover .toggle-icon { color: var(--text-primary); }
+        .session-name {
+            font-weight: 600;
+            font-size: 15px;
+            color: var(--text-primary);
+            word-break: break-all;
+            flex: 1;
+        }
+        .session-badges { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+        /* Badges */
+        .badge {
+            font-size: 11px;
+            padding: 3px 10px;
+            border-radius: 20px;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .badge-done { background: #dafbe1; color: var(--accent-success); }
+        .badge-queued { background: #fff8c5; color: var(--accent-warning); }
+        .badge-processing { background: var(--bg-accent); color: var(--accent-primary); }
+
+        /* Health Indicator */
+        .health-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-weight: 500;
+        }
+        .health-good { background: #dafbe1; color: var(--accent-success); }
+        .health-warning { background: #fff8c5; color: var(--accent-warning); }
+        .health-error { background: #ffebe9; color: var(--accent-danger); }
+        .health-dot { width: 6px; height: 6px; border-radius: 50%; }
+        .health-good .health-dot { background: var(--accent-success); }
+        .health-warning .health-dot { background: var(--accent-warning); }
+        .health-error .health-dot { background: var(--accent-danger); }
+
+        /* Session Meta */
+        .session-meta {
+            font-size: 13px;
+            color: var(--text-secondary);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 16px;
+        }
+        .meta-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        /* Collapsible */
+        .toggle-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            color: var(--text-tertiary);
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+        }
+        .toggle-icon:hover { background: var(--bg-subtle); }
+        .session-details { display: none; margin-top: 16px; }
+        .session-details.open { display: block; }
+        .card.expanded .toggle-icon { transform: rotate(45deg); }
+
+        /* Data Status */
+        .data-status {
+            margin: 16px 0;
+            padding: 16px;
+            background: var(--bg-subtle);
+            border-radius: var(--radius-md);
+            font-size: 12px;
+        }
+        .data-status-title {
+            font-weight: 600;
+            font-size: 11px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-bottom: 12px;
+        }
+        .data-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+        }
+        .data-item {
+            padding: 12px 14px;
+            background: var(--bg-card);
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-subtle);
+        }
+        .data-details { }
+        .data-label { font-weight: 500; color: var(--text-primary); margin-bottom: 2px; }
+        .data-value { font-size: 11px; color: var(--text-secondary); }
+        .data-time { font-family: 'SF Mono', Monaco, monospace; font-size: 11px; color: var(--accent-primary); }
+
+        /* Sync Bar */
+        .sync-bar {
+            margin: 12px 0 16px;
+            padding: 12px 14px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 12px;
+        }
+        .sync-bar.synced { background: #dafbe1; color: var(--accent-success); }
+        .sync-bar.warning { background: #fff8c5; color: var(--accent-warning); }
+        .sync-bar.error { background: #ffebe9; color: var(--accent-danger); }
+        .sync-icon { font-size: 14px; }
+        .sync-time { font-family: 'SF Mono', Monaco, monospace; }
+
+        /* Tags */
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+        }
+        .tag-present { background: #dafbe1; color: var(--accent-success); }
+        .tag-missing { background: #ffebe9; color: var(--accent-danger); }
+        .tag-info { background: var(--bg-subtle); color: var(--text-secondary); border: 1px solid var(--border-subtle); }
+
+        /* Buttons */
+        .session-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+        .btn {
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            border: none;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.15s ease;
+        }
+        .btn-primary { background: var(--accent-primary); color: white; }
+        .btn-primary:hover { background: #0860ca; }
+        .btn-secondary { background: var(--bg-subtle); color: var(--text-primary); border: 1px solid var(--border-default); }
+        .btn-secondary:hover { background: var(--border-subtle); }
+        .btn-danger { background: var(--accent-danger); color: white; }
+        .btn-danger:hover { background: #a40e26; }
+        .btn-success { background: var(--accent-success); color: white; }
+        .btn-success:hover { background: #116329; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-icon {
+            background: var(--bg-card);
+            border: 1px solid var(--border-default);
+            padding: 8px 14px;
+            color: var(--text-secondary);
+        }
+        .btn-icon:hover { background: var(--bg-subtle); color: var(--text-primary); }
+
+        /* Queue */
+        .queue-card {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            border: 1px solid var(--border-default);
+        }
+        .queue-empty {
+            color: var(--text-tertiary);
+            font-size: 13px;
+            text-align: center;
+            padding: 32px 0;
+        }
+        .queue-item {
+            padding: 14px 16px;
+            background: var(--bg-subtle);
+            border-radius: var(--radius-md);
+            margin-bottom: 10px;
+            border: 1px solid transparent;
+        }
+        .queue-item:last-child { margin-bottom: 0; }
+        .queue-item.active {
+            background: var(--bg-accent);
+            border-color: #a8d4fb;
+        }
+        .queue-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .queue-item-name { font-size: 14px; font-weight: 500; }
+        .queue-item-status { font-size: 12px; color: var(--text-secondary); }
+        .queue-remove {
+            background: none;
+            border: none;
+            color: var(--text-tertiary);
+            cursor: pointer;
+            font-size: 18px;
+            line-height: 1;
+            padding: 4px;
+            border-radius: 4px;
+        }
+        .queue-remove:hover { color: var(--accent-danger); background: #ffebe9; }
+
+        /* Progress */
+        .progress-bar { height: 6px; background: var(--border-default); border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--accent-primary); transition: width 0.3s ease; }
+        .progress-fill.complete { background: var(--accent-success); }
+        .cameras-progress { margin-top: 12px; }
+        .cam-row { display: flex; align-items: center; font-size: 12px; margin-bottom: 8px; }
+        .cam-name { width: 90px; color: var(--text-secondary); font-weight: 500; }
+        .cam-bar { flex: 1; margin: 0 12px; }
+        .cam-pct { width: 40px; text-align: right; color: var(--text-tertiary); font-family: 'SF Mono', Monaco, monospace; }
+
+        /* Settings Panel */
+        .settings-panel { display: none; margin-bottom: 32px; }
+        .settings-panel.open { display: block; }
+        .settings-card {
+            background: var(--bg-card);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            border: 1px solid var(--border-default);
+        }
+        .settings-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 16px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+
+        .form-group { margin-bottom: 20px; }
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+        .form-hint { font-size: 12px; color: var(--text-tertiary); margin-top: 6px; }
+        .form-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid var(--border-default);
+            border-radius: var(--radius-sm);
+            font-size: 14px;
+            font-family: inherit;
+            background: var(--bg-card);
+            transition: border-color 0.15s ease;
+        }
+        .form-input:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 3px rgba(9,105,218,0.1); }
+        .form-input.error { border-color: var(--accent-danger); }
+
+        .form-row { display: flex; gap: 16px; }
+        .form-row .form-group { flex: 1; }
+
+        .rotation-list { margin-top: 12px; }
+        .rotation-item { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+        .rotation-item input { flex: 1; }
+        .rotation-add { margin-top: 12px; }
+
+        .settings-actions {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            border-top: 1px solid var(--border-subtle);
+            padding-top: 20px;
+            margin-top: 8px;
+        }
+
+        .alert { padding: 12px 16px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 20px; }
+        .alert-success { background: #dafbe1; color: var(--accent-success); }
+        .alert-error { background: #ffebe9; color: var(--accent-danger); }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            .container { padding: 20px 16px; }
+            .data-grid { grid-template-columns: 1fr; }
+            .form-row { flex-direction: column; gap: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-left">
+                <h1>SyncDrive</h1>
+                <p class="subtitle">Drive Recording Pipeline</p>
+            </div>
+            <button class="btn btn-icon" id="settingsToggle" title="Settings">⚙ Settings</button>
+        </div>
+
+        <div class="settings-panel" id="settingsPanel">
+            <div class="settings-card">
+                <div class="settings-title">
+                    <span>Settings</span>
+                    <button class="btn btn-secondary" id="settingsClose">Close</button>
+                </div>
+
+                <div id="settingsAlert"></div>
+
+                <div class="form-group">
+                    <label class="form-label">Camera Folder Pattern</label>
+                    <input type="text" class="form-input" id="cameraPattern" placeholder="e.g., melb-01-cam-\d+">
+                    <p class="form-hint">Regex pattern to match camera folder names (e.g., melb-01-cam-\d+ matches melb-01-cam-01, melb-01-cam-02, etc.)</p>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Video Segment Pattern</label>
+                    <input type="text" class="form-input" id="segmentPattern" placeholder="e.g., seg_*.mp4">
+                    <p class="form-hint">Glob pattern to match video segment files inside camera folders</p>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label">Timezone</label>
+                        <input type="text" class="form-input" id="timezone" placeholder="e.g., Australia/Melbourne">
+                        <p class="form-hint">Used for timestamps in CAN data</p>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Cache Duration (seconds)</label>
+                        <input type="number" class="form-input" id="cacheTtl" min="1" max="60" placeholder="5">
+                        <p class="form-hint">How often to refresh session list</p>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Camera Rotations (180° flip)</label>
+                    <p class="form-hint">Cameras that need to be flipped upside-down during processing</p>
+                    <div class="rotation-list" id="rotationList"></div>
+                    <button class="btn btn-secondary rotation-add" id="addRotation">+ Add Camera</button>
+                </div>
+
+                <div class="settings-actions">
+                    <button class="btn btn-secondary" id="settingsCancel">Cancel</button>
+                    <button class="btn btn-success" id="settingsSave">Save Settings</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="section">
+            <div class="section-title">Sessions</div>
+            <div id="sessionsList"></div>
+        </div>
+
+        <div class="section">
+            <div class="section-header">
+                <span class="section-title">Queue</span>
+                <button class="btn btn-danger" id="stopBtn" style="display:none;" data-action="stop">Stop</button>
+            </div>
+            <div class="queue-card">
+                <div id="queueList"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let sessions = [];
+        let queueState = { current: null, queue: [], progress: {} };
+        let config = {};
+        let originalConfig = {};
+        let expandedSessions = new Set();
+
+        async function loadData() {
+            try {
+                const [sessionsRes, statusRes] = await Promise.all([
+                    fetch('/sessions').then(r => r.json()),
+                    fetch('/status').then(r => r.json())
+                ]);
+                sessions = sessionsRes;
+                queueState = statusRes;
+                render();
+            } catch(e) {
+                console.error('Load error:', e);
+            }
+        }
+
+        async function loadConfig() {
+            try {
+                config = await fetch('/config').then(r => r.json());
+                originalConfig = JSON.parse(JSON.stringify(config));
+                renderSettings();
+            } catch(e) {
+                console.error('Config load error:', e);
+            }
+        }
+
+        function formatSize(bytes) {
+            if (bytes < 1024*1024) return (bytes/1024).toFixed(0) + ' KB';
+            if (bytes < 1024*1024*1024) return (bytes/(1024*1024)).toFixed(1) + ' MB';
+            return (bytes/(1024*1024*1024)).toFixed(2) + ' GB';
+        }
+
+        function render() {
+            renderSessions();
+            renderQueue();
+        }
+
+        function renderSettings() {
+            document.getElementById('cameraPattern').value = config.camera_pattern || '';
+            document.getElementById('segmentPattern').value = config.segment_pattern || '';
+            document.getElementById('timezone').value = config.timezone || '';
+            document.getElementById('cacheTtl').value = config.cache_ttl_seconds || 5;
+            renderRotations();
+        }
+
+        function renderRotations() {
+            var el = document.getElementById('rotationList');
+            var rotations = config.default_rotations || {};
+            var cameras = Object.keys(rotations);
+
+            if (cameras.length === 0) {
+                el.innerHTML = '<p style="color:#999;font-size:12px;">No cameras configured for rotation</p>';
+                return;
+            }
+
+            var html = '';
+            for (var i = 0; i < cameras.length; i++) {
+                var cam = cameras[i];
+                html += '<div class="rotation-item">' +
+                    '<input type="text" class="form-input" value="' + cam + '" data-rotation-idx="' + i + '">' +
+                    '<button class="btn btn-danger" data-remove-rotation="' + cam + '">Remove</button>' +
+                    '</div>';
+            }
+            el.innerHTML = html;
+        }
+
+        function getConfigFromForm() {
+            var rotationInputs = document.querySelectorAll('[data-rotation-idx]');
+            var rotations = {};
+            rotationInputs.forEach(function(input) {
+                if (input.value.trim()) {
+                    rotations[input.value.trim()] = true;
+                }
+            });
+
+            return {
+                camera_pattern: document.getElementById('cameraPattern').value,
+                segment_pattern: document.getElementById('segmentPattern').value,
+                timezone: document.getElementById('timezone').value,
+                port: config.port || 5050,
+                host: config.host || '0.0.0.0',
+                cache_ttl_seconds: parseInt(document.getElementById('cacheTtl').value) || 5,
+                default_rotations: rotations
+            };
+        }
+
+        function showSettingsAlert(message, isError) {
+            var el = document.getElementById('settingsAlert');
+            el.innerHTML = '<div class="alert ' + (isError ? 'alert-error' : 'alert-success') + '">' + message + '</div>';
+            if (!isError) {
+                setTimeout(function() { el.innerHTML = ''; }, 3000);
+            }
+        }
+
+        async function saveConfig() {
+            var newConfig = getConfigFromForm();
+            try {
+                var res = await fetch('/config', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(newConfig)
+                });
+                var data = await res.json();
+                if (res.ok) {
+                    config = newConfig;
+                    originalConfig = JSON.parse(JSON.stringify(newConfig));
+                    showSettingsAlert('Settings saved successfully!', false);
+                    loadData();
+                } else {
+                    showSettingsAlert('Error: ' + data.message, true);
+                }
+            } catch(e) {
+                showSettingsAlert('Error saving settings: ' + e.message, true);
+            }
+        }
+
+        function getSessionHealth(s) {
+            var src = s.source || {};
+            var issues = [];
+
+            // Check data sources present
+            if (!src.can) issues.push('No CAN data');
+            if (!src.phone) issues.push('No phone data');
+            if (!src.watch) issues.push('No watch data');
+
+            // Check sync status
+            var sync = src.sync_status;
+            if (sync) {
+                if (sync.has_outlier) issues.push('Timestamp outliers');
+                if (sync.status === 'no_overlap') issues.push('Data not synced');
+                else if (sync.status === 'partial' && sync.overlap_pct < 50) issues.push('Low overlap (' + sync.overlap_pct + '%)');
+            }
+
+            if (issues.length === 0) {
+                return { status: 'good', label: 'Healthy', issues: [] };
+            } else if (issues.length <= 2 && !issues.includes('Data not synced')) {
+                return { status: 'warning', label: 'Warning', issues: issues };
+            } else {
+                return { status: 'error', label: 'Issues', issues: issues };
+            }
+        }
+
+        function renderHealthIndicator(s) {
+            var health = getSessionHealth(s);
+            var cls = 'health-' + health.status;
+            var title = health.issues.length > 0 ? health.issues.join(', ') : 'All data sources present and synced';
+            return '<span class="health-indicator ' + cls + '" title="' + title + '">' +
+                   '<span class="health-dot"></span>' + health.label +
+                   '</span>';
+        }
+
+        function renderCameraInfo(s) {
+            var details = s.camera_details || [];
+            if (details.length === 0) {
+                return '<span class="meta-item">' + s.cameras + ' cameras</span>' +
+                       '<span class="meta-item">' + s.segments + ' segments</span>';
+            }
+            // Show each camera with segment count, shortened name
+            var parts = details.map(function(c) {
+                var shortName = c.name.replace('melb-01-', '');
+                return shortName + ': ' + c.segments + ' seg';
+            });
+            return '<span class="meta-item">' + parts.join(' · ') + '</span>';
+        }
+
+        function renderDataStatus(s) {
+            var src = s.source || {};
+            var proc = s.processed || {};
+
+            var html = '';
+
+            // Sync status bar
+            var sync = src.sync_status;
+            if (sync && sync.sources && sync.sources.length >= 2) {
+                var syncClass = sync.synced ? 'synced' : (sync.status === 'partial' ? 'warning' : 'error');
+                var syncIcon = sync.synced ? '✓' : (sync.status === 'partial' ? '!' : '✕');
+                html += '<div class="sync-bar ' + syncClass + '">';
+                html += '<span class="sync-icon">' + syncIcon + '</span>';
+                if (sync.synced) {
+                    html += '<span>Data synced: <span class="sync-time">' + sync.common_start + ' - ' + sync.common_end + '</span></span>';
+                    html += '<span class="tag tag-info">' + sync.overlap_seconds + 's</span>';
+                } else if (sync.status === 'partial') {
+                    html += '<span>' + sync.message + '</span>';
+                    if (sync.has_outlier) {
+                        html += '<span class="tag tag-missing">Timestamp outliers</span>';
+                    }
+                } else {
+                    html += '<span>' + sync.message + '</span>';
+                }
+                html += '</div>';
+            }
+
+            html += '<div class="data-status">';
+            html += '<div class="data-status-title">Data Sources</div>';
+            html += '<div class="data-grid">';
+
+            // CAN item
+            html += '<div class="data-item">';
+            html += '<div class="data-details">';
+            html += '<div class="data-label">CAN Bus ' + (src.can ? '<span class="tag tag-present">OK</span>' : '<span class="tag tag-missing">Missing</span>') + '</div>';
+            if (src.can && src.can_time_range) {
+                html += '<div class="data-time">' + src.can_time_range.start_short + ' - ' + src.can_time_range.end_short + '</div>';
+                html += '<div class="data-value">' + Math.round(src.can_time_range.duration_sec) + 's</div>';
+            }
+            html += '</div></div>';
+
+            // Phone item
+            html += '<div class="data-item">';
+            html += '<div class="data-details">';
+            html += '<div class="data-label">Phone ' + (src.phone ? '<span class="tag tag-present">OK</span>' : '<span class="tag tag-missing">Missing</span>') + '</div>';
+            if (src.phone && src.phone_time_range) {
+                html += '<div class="data-time">' + src.phone_time_range.start_short + ' - ' + src.phone_time_range.end_short + '</div>';
+                html += '<div class="data-value">' + src.phone_files + ' files</div>';
+            } else if (src.phone) {
+                html += '<div class="data-value">' + src.phone_files + ' files</div>';
+            }
+            html += '</div></div>';
+
+            // Earpods item
+            html += '<div class="data-item">';
+            html += '<div class="data-details">';
+            html += '<div class="data-label">Earpods ' + (src.earpods ? '<span class="tag tag-present">OK</span>' : '<span class="tag tag-missing">Missing</span>') + '</div>';
+            if (src.earpods && src.earpods_time_range) {
+                html += '<div class="data-time">' + src.earpods_time_range.start_short + ' - ' + src.earpods_time_range.end_short + '</div>';
+                html += '<div class="data-value">' + Math.round(src.earpods_time_range.duration_sec) + 's</div>';
+            }
+            html += '</div></div>';
+
+            // Watch item
+            html += '<div class="data-item">';
+            html += '<div class="data-details">';
+            html += '<div class="data-label">Watch ' + (src.watch ? '<span class="tag tag-present">OK</span>' : '<span class="tag tag-missing">Missing</span>') + '</div>';
+            if (src.watch && src.watch_time_range) {
+                html += '<div class="data-time">' + src.watch_time_range.start_short + ' - ' + src.watch_time_range.end_short + '</div>';
+                html += '<div class="data-value">' + src.watch_files + ' files</div>';
+            } else if (src.watch) {
+                html += '<div class="data-value">' + src.watch_files + ' files</div>';
+            }
+            html += '</div></div>';
+
+            html += '</div>'; // data-grid
+
+            // Processed data section (only if processed)
+            if (s.is_processed && proc) {
+                var meta = proc.metadata || {};
+                var dataSources = meta.data_sources || {};
+
+                html += '<div class="data-status-title" style="margin-top:16px;">Processed Output</div>';
+                html += '<div class="data-grid">';
+
+                // Videos
+                var totalDur = 0;
+                if (dataSources.videos && dataSources.videos.length > 0) {
+                    totalDur = dataSources.videos.reduce(function(sum, v) { return sum + (v.duration_sec || 0); }, 0);
+                }
+                html += '<div class="data-item">';
+                html += '<div class="data-details">';
+                html += '<div class="data-label">Videos ' + (proc.videos > 0 ? '<span class="tag tag-present">OK</span>' : '<span class="tag tag-missing">None</span>') + '</div>';
+                if (proc.videos > 0) {
+                    html += '<div class="data-value">' + proc.videos + ' cameras' + (totalDur > 0 ? ' · ' + Math.round(totalDur/60) + ' min' : '') + '</div>';
+                }
+                html += '</div></div>';
+
+                // Parsed CAN
+                var humanReadable = proc.can_files ? proc.can_files.filter(function(f) {
+                    return ['wheel_speed.csv', 'vehicle_speed.csv', 'brake.csv', 'steering.csv', 'engine_rpm.csv', 'trip_summary_1hz.csv'].indexOf(f) !== -1;
+                }) : [];
+                html += '<div class="data-item">';
+                html += '<div class="data-details">';
+                html += '<div class="data-label">CAN Parsed ' + (proc.can ? '<span class="tag tag-present">OK</span>' : '<span class="tag tag-missing">None</span>') + '</div>';
+                if (proc.can && proc.can_files && proc.can_files.length > 0) {
+                    html += '<div class="data-value">' + proc.can_files.length + ' files' + (humanReadable.length > 0 ? ' · decoded' : '') + '</div>';
+                }
+                html += '</div></div>';
+
+                // Phone/Earpods/Watch - only show if they exist
+                if (proc.phone) {
+                    html += '<div class="data-item">';
+                    html += '<div class="data-details">';
+                    html += '<div class="data-label">Phone <span class="tag tag-present">Copied</span></div>';
+                    html += '<div class="data-value">' + proc.phone_files + ' files</div>';
+                    html += '</div></div>';
+                }
+                if (proc.earpods) {
+                    html += '<div class="data-item">';
+                    html += '<div class="data-details">';
+                    html += '<div class="data-label">Earpods <span class="tag tag-present">Copied</span></div>';
+                    html += '</div></div>';
+                }
+                if (proc.watch) {
+                    html += '<div class="data-item">';
+                    html += '<div class="data-details">';
+                    html += '<div class="data-label">Watch <span class="tag tag-present">Copied</span></div>';
+                    html += '<div class="data-value">' + proc.watch_files + ' files</div>';
+                    html += '</div></div>';
+                }
+
+                html += '</div>'; // data-grid
+
+                // Processing timestamp
+                if (meta.processed_at) {
+                    html += '<div style="margin-top:12px;font-size:11px;color:var(--text-tertiary);">Processed: ' + meta.processed_at + '</div>';
+                }
+            }
+
+            html += '</div>'; // data-status
+            return html;
+        }
+
+        function renderSessions() {
+            var el = document.getElementById('sessionsList');
+
+            if (sessions.length === 0) {
+                el.innerHTML = '<div class="card"><p style="color:#999;text-align:center;">No sessions found</p></div>';
+                return;
+            }
+
+            var html = '';
+            for (var i = 0; i < sessions.length; i++) {
+                var s = sessions[i];
+                var isQueued = queueState.queue.indexOf(s.name) !== -1;
+                var isProcessing = queueState.current === s.name;
+
+                var badge = '';
+                if (isProcessing) badge = '<span class="badge badge-processing">Processing</span>';
+                else if (isQueued) badge = '<span class="badge badge-queued">Queued</span>';
+                else if (s.is_processed) badge = '<span class="badge badge-done">Done</span>';
+
+                var actions = '';
+                if (s.is_processed) {
+                    actions = '<button class="btn btn-secondary" data-action="open" data-idx="' + i + '">Open Folder</button>' +
+                              '<button class="btn btn-secondary" data-action="reprocess" data-idx="' + i + '">Reprocess</button>';
+                } else if (!isQueued && !isProcessing) {
+                    actions = '<button class="btn btn-primary" data-action="queue" data-idx="' + i + '">+ Add to Queue</button>';
+                }
+
+                var isExpanded = expandedSessions.has(s.name);
+                var cardClass = isExpanded ? 'card expanded' : 'card';
+                var detailsClass = isExpanded ? 'session-details open' : 'session-details';
+
+                html += '<div class="' + cardClass + '" data-session="' + i + '">' +
+                    '<div class="session-header" data-toggle="' + s.name + '">' +
+                    '<span class="toggle-icon">+</span>' +
+                    '<span class="session-name">' + s.name + '</span>' +
+                    '<div class="session-badges">' + renderHealthIndicator(s) + badge + '</div>' +
+                    '</div>' +
+                    '<div class="session-meta">' +
+                    renderCameraInfo(s) +
+                    '<span class="meta-item">' + formatSize(s.size_bytes) + '</span>' +
+                    '</div>' +
+                    '<div class="' + detailsClass + '" data-details="' + s.name + '">' +
+                    renderDataStatus(s) +
+                    '<div class="session-actions">' + actions + '</div>' +
+                    '</div>' +
+                    '</div>';
+            }
+            el.innerHTML = html;
+        }
+
+        function renderQueue() {
+            var el = document.getElementById('queueList');
+            var stopBtn = document.getElementById('stopBtn');
+
+            if (!queueState.current && queueState.queue.length === 0) {
+                el.innerHTML = '<div class="queue-empty">No items in queue</div>';
+                stopBtn.style.display = 'none';
+                return;
+            }
+
+            stopBtn.style.display = queueState.current ? 'block' : 'none';
+
+            var html = '';
+
+            if (queueState.current) {
+                var camHtml = '';
+                var progress = queueState.progress || {};
+                var camNames = Object.keys(progress);
+                for (var j = 0; j < camNames.length; j++) {
+                    var cam = camNames[j];
+                    var info = progress[cam];
+                    var pct = info.progress || 0;
+                    var cls = info.status === 'complete' ? 'complete' : '';
+                    camHtml += '<div class="cam-row">' +
+                        '<span class="cam-name">' + cam.replace('melb-01-', '') + '</span>' +
+                        '<div class="cam-bar"><div class="progress-bar"><div class="progress-fill ' + cls + '" style="width:' + pct + '%"></div></div></div>' +
+                        '<span class="cam-pct">' + pct + '%</span></div>';
+                }
+
+                // Data status rows (phone, earpods, watch, CAN)
+                var dataHtml = '';
+
+                // Phone status
+                var phoneStatus = queueState.phone_status || 'none';
+                if (phoneStatus !== 'none') {
+                    var phonePct = phoneStatus === 'complete' ? 100 : (phoneStatus === 'processing' ? 50 : 0);
+                    var phoneCls = phoneStatus === 'complete' ? 'complete' : '';
+                    var phoneLabel = phoneStatus === 'complete' ? 'Done' : (phoneStatus === 'processing' ? 'Copying...' : 'Pending');
+                    dataHtml += '<div class="cam-row">' +
+                        '<span class="cam-name">Phone</span>' +
+                        '<div class="cam-bar"><div class="progress-bar"><div class="progress-fill ' + phoneCls + '" style="width:' + phonePct + '%"></div></div></div>' +
+                        '<span class="cam-pct">' + phoneLabel + '</span></div>';
+                }
+
+                // Earpods status
+                var earpodsStatus = queueState.earpods_status || 'none';
+                if (earpodsStatus !== 'none') {
+                    var earpodsPct = earpodsStatus === 'complete' ? 100 : (earpodsStatus === 'processing' ? 50 : 0);
+                    var earpodsCls = earpodsStatus === 'complete' ? 'complete' : '';
+                    var earpodsLabel = earpodsStatus === 'complete' ? 'Done' : (earpodsStatus === 'processing' ? 'Copying...' : 'Pending');
+                    dataHtml += '<div class="cam-row">' +
+                        '<span class="cam-name">Earpods</span>' +
+                        '<div class="cam-bar"><div class="progress-bar"><div class="progress-fill ' + earpodsCls + '" style="width:' + earpodsPct + '%"></div></div></div>' +
+                        '<span class="cam-pct">' + earpodsLabel + '</span></div>';
+                }
+
+                // Watch status
+                var watchStatus = queueState.watch_status || 'none';
+                if (watchStatus !== 'none') {
+                    var watchPct = watchStatus === 'complete' ? 100 : (watchStatus === 'processing' ? 50 : 0);
+                    var watchCls = watchStatus === 'complete' ? 'complete' : '';
+                    var watchLabel = watchStatus === 'complete' ? 'Done' : (watchStatus === 'processing' ? 'Copying...' : 'Pending');
+                    dataHtml += '<div class="cam-row">' +
+                        '<span class="cam-name">Watch</span>' +
+                        '<div class="cam-bar"><div class="progress-bar"><div class="progress-fill ' + watchCls + '" style="width:' + watchPct + '%"></div></div></div>' +
+                        '<span class="cam-pct">' + watchLabel + '</span></div>';
+                }
+
+                // CAN status
+                var canStatus = queueState.can_status || 'none';
+                if (canStatus !== 'none') {
+                    var canPct = canStatus === 'complete' ? 100 : (canStatus === 'processing' ? 50 : 0);
+                    var canCls = canStatus === 'complete' ? 'complete' : '';
+                    var canLabel = canStatus === 'complete' ? 'Done' : (canStatus === 'processing' ? 'Parsing...' : 'Pending');
+                    dataHtml += '<div class="cam-row">' +
+                        '<span class="cam-name">CAN Data</span>' +
+                        '<div class="cam-bar"><div class="progress-bar"><div class="progress-fill ' + canCls + '" style="width:' + canPct + '%"></div></div></div>' +
+                        '<span class="cam-pct">' + canLabel + '</span></div>';
+                }
+
+                html += '<div class="queue-item active">' +
+                    '<div class="queue-item-header">' +
+                    '<span class="queue-item-name">' + queueState.current + '</span>' +
+                    '<span class="queue-item-status">Processing</span>' +
+                    '</div>' +
+                    '<div class="cameras-progress">' + dataHtml + camHtml + '</div>' +
+                    '</div>';
+            }
+
+            for (var k = 0; k < queueState.queue.length; k++) {
+                var name = queueState.queue[k];
+                html += '<div class="queue-item">' +
+                    '<div class="queue-item-header">' +
+                    '<span class="queue-item-name">' + name + '</span>' +
+                    '<button class="queue-remove" data-action="remove" data-idx="' + k + '">x</button>' +
+                    '</div>' +
+                    '<div class="queue-item-status">Waiting</div>' +
+                    '</div>';
+            }
+
+            el.innerHTML = html;
+        }
+
+        // Settings panel toggle
+        document.getElementById('settingsToggle').addEventListener('click', function() {
+            document.getElementById('settingsPanel').classList.add('open');
+            loadConfig();
+        });
+
+        document.getElementById('settingsClose').addEventListener('click', function() {
+            document.getElementById('settingsPanel').classList.remove('open');
+        });
+
+        document.getElementById('settingsCancel').addEventListener('click', function() {
+            config = JSON.parse(JSON.stringify(originalConfig));
+            renderSettings();
+            document.getElementById('settingsAlert').innerHTML = '';
+        });
+
+        document.getElementById('settingsSave').addEventListener('click', saveConfig);
+
+        document.getElementById('addRotation').addEventListener('click', function() {
+            if (!config.default_rotations) config.default_rotations = {};
+            var newName = 'camera-' + (Object.keys(config.default_rotations).length + 1);
+            config.default_rotations[newName] = true;
+            renderRotations();
+        });
+
+        document.getElementById('rotationList').addEventListener('click', function(e) {
+            var removeKey = e.target.getAttribute('data-remove-rotation');
+            if (removeKey) {
+                delete config.default_rotations[removeKey];
+                renderRotations();
+            }
+        });
+
+        document.addEventListener('click', function(e) {
+            // Handle session toggle
+            var toggleEl = e.target.closest('[data-toggle]');
+            if (toggleEl) {
+                var sessionName = toggleEl.getAttribute('data-toggle');
+                if (expandedSessions.has(sessionName)) {
+                    expandedSessions.delete(sessionName);
+                } else {
+                    expandedSessions.add(sessionName);
+                }
+                render();
+                return;
+            }
+
+            var action = e.target.getAttribute('data-action');
+            var idx = parseInt(e.target.getAttribute('data-idx'), 10);
+
+            if (action === 'queue') {
+                var s = sessions[idx];
+                fetch('/queue', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ path: s.path, name: s.name, rotations: {} })
+                }).then(function() { loadData(); });
+            }
+            else if (action === 'open') {
+                var s2 = sessions[idx];
+                fetch('/open-folder', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ path: s2.output_path })
+                });
+            }
+            else if (action === 'reprocess') {
+                var s3 = sessions[idx];
+                fetch('/reprocess', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ name: s3.name })
+                }).then(function() { loadData(); });
+            }
+            else if (action === 'remove') {
+                var name = queueState.queue[idx];
+                fetch('/remove-from-queue', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ name: name })
+                }).then(function() { loadData(); });
+            }
+            else if (action === 'stop') {
+                fetch('/stop', { method: 'POST' }).then(function() { loadData(); });
+            }
+        });
+
+        setInterval(loadData, 1000);
+        loadData();
+    </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "camera_pattern": "melb-01-cam-\\d+",
+  "segment_pattern": "seg_*.mp4",
+  "default_rotations": {
+    "melb-01-cam-01": true,
+    "melb-01-cam-03": true
+  },
+  "timezone": "Australia/Melbourne",
+  "port": 5050,
+  "host": "0.0.0.0",
+  "cache_ttl_seconds": 5
+}
