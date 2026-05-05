@@ -19,7 +19,7 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_file
 
 # Multiprocessing settings
 MAX_WORKERS = max(1, multiprocessing.cpu_count() - 1)  # Leave one core free
@@ -55,12 +55,24 @@ CONFIG = load_config()
 app = Flask(__name__)
 TIMEZONE = ZoneInfo(CONFIG['timezone'])
 BASE_DIR = Path(__file__).parent.parent
-SESSIONS_DIR = BASE_DIR / 'sessions'
-PROCESSED_DIR = BASE_DIR / 'processed'
 
-# Ensure directories exist
-SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
-PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+# Sessions directory can be configured, defaults to ./sessions
+if CONFIG.get('sessions_dir'):
+    SESSIONS_DIR = Path(CONFIG['sessions_dir'])
+else:
+    SESSIONS_DIR = BASE_DIR / 'sessions'
+
+# Processed directory follows sessions directory pattern
+if CONFIG.get('processed_dir'):
+    PROCESSED_DIR = Path(CONFIG['processed_dir'])
+else:
+    PROCESSED_DIR = BASE_DIR / 'processed'
+
+# Ensure directories exist (only create if using defaults)
+if not CONFIG.get('sessions_dir'):
+    SESSIONS_DIR.mkdir(parents=True, exist_ok=True)
+if not CONFIG.get('processed_dir'):
+    PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
 
 CAMERA_PATTERN = re.compile(CONFIG['camera_pattern'])
 
@@ -1553,6 +1565,115 @@ def reprocess():
     return jsonify({'status': 'ok'})
 
 
+@app.route('/processed-video/<session_name>/<camera>')
+def get_processed_video(session_name, camera):
+    """Serve processed video files."""
+    processed_path = find_processed_folder(session_name)
+    if not processed_path:
+        return jsonify({'error': 'Session not found'}), 404
+
+    # Look for video file matching camera name
+    video_file = None
+    for pattern in [f'{camera}_full.mp4', f'{camera}.mp4']:
+        candidate = processed_path / pattern
+        if candidate.exists():
+            video_file = candidate
+            break
+
+    if not video_file:
+        return jsonify({'error': 'Video not found'}), 404
+
+    return send_file(video_file, mimetype='video/mp4')
+
+
+@app.route('/processed-files/<session_name>')
+def list_processed_files(session_name):
+    """List available data files for a processed session."""
+    processed_path = find_processed_folder(session_name)
+    if not processed_path:
+        return jsonify({'error': 'Session not found'}), 404
+
+    result = {
+        'videos': [],
+        'can': [],
+        'phone': [],
+        'watch': []
+    }
+
+    # Find videos
+    for f in sorted(processed_path.glob('*_full.mp4')):
+        camera_name = f.stem.replace('_full', '')
+        result['videos'].append({
+            'name': camera_name,
+            'file': f.name,
+            'url': f'/processed-video/{session_name}/{camera_name}'
+        })
+
+    # Find CAN data (in parsed/)
+    parsed_dir = processed_path / 'parsed'
+    if parsed_dir.exists():
+        for f in sorted(parsed_dir.glob('*.csv')):
+            result['can'].append({
+                'name': f.stem.replace('_', ' ').title(),
+                'file': f.name
+            })
+
+    # Find phone data
+    phone_dir = processed_path / 'phone'
+    if phone_dir.exists():
+        for f in sorted(phone_dir.glob('*.csv')):
+            result['phone'].append({
+                'name': f.stem.replace('_', ' ').title(),
+                'file': f.name
+            })
+
+    # Find watch data
+    watch_dir = processed_path / 'watch'
+    if watch_dir.exists():
+        for f in sorted(watch_dir.glob('*.csv')):
+            result['watch'].append({
+                'name': f.stem.replace('_', ' ').title(),
+                'file': f.name
+            })
+
+    return jsonify(result)
+
+
+@app.route('/processed-data/<session_name>/<path:filename>')
+def get_processed_data(session_name, filename):
+    """Serve processed data files (CSV) for visualization."""
+    processed_path = find_processed_folder(session_name)
+    if not processed_path:
+        return jsonify({'error': 'Session not found'}), 404
+
+    # Look in parsed directory first, then phone, watch, then root
+    file_path = None
+    for subdir in ['parsed', 'phone', 'watch', '']:
+        candidate = processed_path / subdir / filename if subdir else processed_path / filename
+        if candidate.exists():
+            file_path = candidate
+            break
+
+    if not file_path:
+        file_path = processed_path / filename  # Will fail exists() check below
+
+    if not file_path.exists():
+        return jsonify({'error': 'File not found'}), 404
+
+    # Security: ensure path is within processed directory
+    try:
+        file_path.resolve().relative_to(processed_path.resolve())
+    except ValueError:
+        return jsonify({'error': 'Invalid path'}), 403
+
+    try:
+        with open(file_path, 'r') as f:
+            content = f.read()
+        return content, 200, {'Content-Type': 'text/csv'}
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/log/<session_name>')
 def get_processing_log(session_name):
     """Get the processing log for a session."""
@@ -1585,6 +1706,125 @@ def stop_queue():
         earpods_status = 'none'
         watch_status = 'none'
     return jsonify({'status': 'ok'})
+
+
+@app.route('/browse', methods=['GET'])
+def browse_directories():
+    """Browse directories for folder selection."""
+    path = request.args.get('path', '')
+
+    # Default to home directory if no path specified
+    if not path:
+        path = str(Path.home())
+
+    target = Path(path)
+
+    # Security: validate path exists and is a directory
+    if not target.exists():
+        return jsonify({'error': 'Path does not exist', 'path': path}), 404
+    if not target.is_dir():
+        return jsonify({'error': 'Path is not a directory', 'path': path}), 400
+
+    # Security: prevent access to sensitive system directories
+    sensitive_paths = ['/etc', '/var', '/private', '/System', '/bin', '/sbin', '/usr']
+    path_str = str(target.resolve())
+    if any(path_str.startswith(sp) for sp in sensitive_paths):
+        return jsonify({'error': 'Access to system directories is restricted', 'path': path}), 403
+
+    try:
+        entries = []
+        for item in sorted(target.iterdir(), key=lambda x: (not x.is_dir(), x.name.lower())):
+            # Skip hidden files/folders
+            if item.name.startswith('.'):
+                continue
+            if item.is_dir():
+                # Check if directory has subdirectories or session-like content
+                try:
+                    has_children = any(c.is_dir() and not c.name.startswith('.') for c in item.iterdir())
+                    has_sessions = any(
+                        (c / 'can_raw.csv').exists() or
+                        any(CAMERA_PATTERN.match(d.name) for d in c.iterdir() if d.is_dir())
+                        for c in item.iterdir() if c.is_dir() and not c.name.startswith('.')
+                    )
+                except PermissionError:
+                    has_children = False
+                    has_sessions = False
+
+                entries.append({
+                    'name': item.name,
+                    'path': str(item),
+                    'type': 'directory',
+                    'has_children': has_children,
+                    'has_sessions': has_sessions
+                })
+
+        # Get parent directory
+        parent = str(target.parent) if target.parent != target else None
+
+        return jsonify({
+            'current': str(target),
+            'parent': parent,
+            'entries': entries
+        })
+    except PermissionError:
+        return jsonify({'error': 'Permission denied', 'path': path}), 403
+    except Exception as e:
+        return jsonify({'error': str(e), 'path': path}), 500
+
+
+@app.route('/set-sessions-dir', methods=['POST'])
+def set_sessions_dir():
+    """Set the sessions directory."""
+    global SESSIONS_DIR, PROCESSED_DIR, session_cache, session_cache_time
+
+    data = request.json
+    path = data.get('path', '')
+
+    if not path:
+        return jsonify({'error': 'Path is required'}), 400
+
+    target = Path(path)
+
+    if not target.exists():
+        return jsonify({'error': 'Path does not exist'}), 404
+    if not target.is_dir():
+        return jsonify({'error': 'Path is not a directory'}), 400
+
+    # Update the sessions directory
+    SESSIONS_DIR = target
+
+    # Set processed directory as sibling to sessions
+    PROCESSED_DIR = target.parent / f"{target.name}_processed"
+    PROCESSED_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Save to config
+    CONFIG['sessions_dir'] = str(target)
+    CONFIG['processed_dir'] = str(PROCESSED_DIR)
+    try:
+        with open(CONFIG_PATH, 'w') as f:
+            json.dump(CONFIG, f, indent=2)
+    except Exception as e:
+        return jsonify({'error': f'Failed to save config: {e}'}), 500
+
+    # Clear session cache
+    session_cache = []
+    session_cache_time = 0
+
+    return jsonify({
+        'status': 'ok',
+        'sessions_dir': str(SESSIONS_DIR),
+        'processed_dir': str(PROCESSED_DIR),
+        'message': f'Sessions directory set to {target}'
+    })
+
+
+@app.route('/get-sessions-dir', methods=['GET'])
+def get_sessions_dir():
+    """Get the current sessions directory."""
+    return jsonify({
+        'sessions_dir': str(SESSIONS_DIR),
+        'processed_dir': str(PROCESSED_DIR)
+    })
 
 
 @app.route('/config', methods=['GET'])
